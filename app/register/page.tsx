@@ -7,9 +7,22 @@ import { AgentForm } from '@/components/agents/AgentForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { useCreateAgentMutation } from '@/lib/store/agentApi';
+import { useRouter } from 'next/navigation';
 
 export default function RegisterPage() {
   const [agentType, setAgentType] = useState<'prompt' | 'openapi'>('prompt');
+  const [createAgent, { isLoading }] = useCreateAgentMutation();
+  const router = useRouter();
+
+  const handleSave = async (data: any) => {
+    try {
+      await createAgent(data).unwrap();
+      router.push('/');
+    } catch (error) {
+      console.error('Failed to create agent:', error);
+    }
+  };
 
   return (
     <motion.div
@@ -43,10 +56,18 @@ export default function RegisterPage() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="prompt">
-              <AgentForm agentType="prompt" />
+              <AgentForm 
+                agentType="prompt" 
+                onSave={handleSave}
+                onCancel={() => router.push('/')}
+              />
             </TabsContent>
             <TabsContent value="openapi">
-              <AgentForm agentType="openapi" />
+              <AgentForm 
+                agentType="openapi" 
+                onSave={handleSave}
+                onCancel={() => router.push('/')}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>

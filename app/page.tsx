@@ -1,21 +1,27 @@
 "use client";
 
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Search, Filter } from "lucide-react";
-import { AgentCard } from "@/components/agent-card";
+import { AgentCard } from "@/components/agents/AgentCard";
 import { AgentSkeleton } from "@/components/agent-skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useGetAgentsQuery } from "@/lib/store/agentApi";
 
 export default function Home() {
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: agents, isLoading, error } = useGetAgentsQuery();
 
-  // Simulate loading state
-  setTimeout(() => setIsLoading(false), 2000);
+  if (error) {
+    return (
+      <div className="container py-8">
+        <div className="text-center text-destructive">
+          Error loading agents. Please try again later.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-8">
@@ -55,29 +61,24 @@ export default function Home() {
               <AgentSkeleton />
             </>
           ) : (
-            <>
+            agents?.map((agent) => (
               <AgentCard
-                name="Analysis Assistant"
-                description="Advanced data analysis and visualization agent"
-                type="OpenAPI"
-                status="active"
-                category="Analysis"
+                key={agent.id}
+                agent={agent}
+                onUpdate={(updatedAgent) => {
+                  // Handle update through API
+                  console.log('Update agent:', updatedAgent);
+                }}
+                onDelete={(id) => {
+                  // Handle delete through API
+                  console.log('Delete agent:', id);
+                }}
+                onToggleActive={(id) => {
+                  // Handle toggle active through API
+                  console.log('Toggle active:', id);
+                }}
               />
-              <AgentCard
-                name="Chat Bot"
-                description="Intelligent conversational agent for customer support"
-                type="Prompt"
-                status="active"
-                category="Chat"
-              />
-              <AgentCard
-                name="Task Automator"
-                description="Workflow automation and task management agent"
-                type="OpenAPI"
-                status="inactive"
-                category="Automation"
-              />
-            </>
+            ))
           )}
         </div>
       </div>

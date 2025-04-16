@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion } from 'framer-motion';
-import { Upload, Lock, Key, Eye, EyeOff } from 'lucide-react';
+import { Upload, Lock, Key, Eye, EyeOff, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,10 +14,38 @@ import { Card } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+
+const categories = [
+  'General',
+  'Development',
+  'Data Analysis',
+  'Content Creation',
+  'Customer Support',
+  'Research',
+  'Education',
+];
+
+const capabilities = [
+  'Text Generation',
+  'Code Generation',
+  'Data Analysis',
+  'Image Generation',
+  'Audio Processing',
+  'Video Processing',
+  'Natural Language Processing',
+  'Machine Learning',
+  'Web Scraping',
+  'API Integration',
+];
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
+  category: z.string(),
+  hostUrl: z.string().url('Please enter a valid URL'),
+  capabilities: z.array(z.string()),
   prompt: z.string().optional(),
   openApiSpec: z.any().optional(),
   authentication: z.array(z.enum(['SPNEGO', 'OIDC'])).optional(),
@@ -33,13 +61,17 @@ type FormData = z.infer<typeof formSchema>;
 
 interface AgentFormProps {
   agentType: 'prompt' | 'openapi';
+  initialData?: Partial<FormData>;
+  onSave: (data: FormData) => void;
+  onCancel: () => void;
 }
 
-export function AgentForm({ agentType }: AgentFormProps) {
+export function AgentForm({ agentType, initialData, onSave, onCancel }: AgentFormProps) {
   const [fileContent, setFileContent] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
-  const [selectedAuth, setSelectedAuth] = useState<string[]>([]);
+  const [selectedAuth, setSelectedAuth] = useState<('SPNEGO' | 'OIDC')[]>(initialData?.authentication || []);
   const [showSecret, setShowSecret] = useState(false);
+  const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>(initialData?.capabilities || []);
 
   const {
     register,
@@ -49,6 +81,7 @@ export function AgentForm({ agentType }: AgentFormProps) {
     watch,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    defaultValues: initialData,
   });
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,11 +92,9 @@ export function AgentForm({ agentType }: AgentFormProps) {
       reader.onload = (e) => {
         const content = e.target?.result as string;
         try {
-          // Try to parse as JSON
           const jsonContent = JSON.parse(content);
           setFileContent(JSON.stringify(jsonContent, null, 2));
         } catch {
-          // If not JSON, assume YAML
           setFileContent(content);
         }
       };
@@ -75,18 +106,26 @@ export function AgentForm({ agentType }: AgentFormProps) {
     const content = e.target.value;
     setFileContent(content);
     try {
-      // Try to parse as JSON
       JSON.parse(content);
       setValue('openApiSpec', content);
     } catch {
-      // If not JSON, assume YAML
       setValue('openApiSpec', content);
     }
   };
 
+  const toggleCapability = (capability: string) => {
+    setSelectedCapabilities((prev) =>
+      prev.includes(capability)
+        ? prev.filter((c) => c !== capability)
+        : [...prev, capability]
+    );
+    setValue('capabilities', selectedCapabilities);
+  };
+
   const onSubmit = (data: FormData) => {
-    console.log({
+    onSave({
       ...data,
+      capabilities: selectedCapabilities,
       authentication: selectedAuth,
       openApiSpec: agentType === 'openapi' ? fileContent : undefined,
     });
@@ -118,6 +157,61 @@ export function AgentForm({ agentType }: AgentFormProps) {
           {errors.description && (
             <p className="text-sm text-destructive">{errors.description.message}</p>
           )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="category">Category</Label>
+          <Select
+            onValueChange={(value) => setValue('category', value)}
+            defaultValue={initialData?.category}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.category && (
+            <p className="text-sm text-destructive">{errors.category.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="hostUrl">Host URL</Label>
+          <Input
+            id="hostUrl"
+            {...register('hostUrl')}
+            placeholder="https://api.example.com"
+          />
+          {errors.hostUrl && (
+            <p className="text-sm text-destructive">{errors.hostUrl.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Capabilities</Label>
+          <div className="flex flex-wrap gap-2">
+            {capabilities.map((capability) => (
+              <Badge
+                key={capability}
+                variant={selectedCapabilities.includes(capability) ? 'default' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => toggleCapability(capability)}
+              >
+                {capability}
+                {selectedCapabilities.includes(capability) ? (
+                  <X size={12} className="ml-1" />
+                ) : (
+                  <Plus size={12} className="ml-1" />
+                )}
+              </Badge>
+            ))}
+          </div>
         </div>
 
         {agentType === 'prompt' ? (
@@ -180,7 +274,7 @@ export function AgentForm({ agentType }: AgentFormProps) {
               <ToggleGroup
                 type="multiple"
                 value={selectedAuth}
-                onValueChange={(value) => setSelectedAuth(value)}
+                onValueChange={(value: ('SPNEGO' | 'OIDC')[]) => setSelectedAuth(value)}
                 className="flex gap-2"
               >
                 <ToggleGroupItem
@@ -257,9 +351,14 @@ export function AgentForm({ agentType }: AgentFormProps) {
         )}
       </div>
 
-      <Button type="submit" className="w-full">
-        Register Agent
-      </Button>
+      <div className="flex justify-end gap-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit">
+          {initialData ? 'Update Agent' : 'Register Agent'}
+        </Button>
+      </div>
     </form>
   );
 } 
